@@ -1,0 +1,3 @@
+from app.config import get_settings
+
+get_settings.cache_clear()
