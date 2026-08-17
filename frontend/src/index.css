@@ -123,3 +123,24 @@
   overflow: hidden;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18);
 }
+
+/* Skeleton shimmer gradient */
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 25%,
+    var(--color-zinc-200) 50%,
+    var(--muted) 75%
+  );
+  background-size: 200% 100%;
+}
+
+.dark .animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 25%,
+    var(--color-zinc-700) 50%,
+    var(--muted) 75%
+  );
+  background-size: 200% 100%;
+}
