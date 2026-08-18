@@ -73,6 +73,7 @@ DOMAIN_COMPONENTS: dict[str, list[str]] = {
         "FlightCard",
         "HotelCard",
         "MetricCard",
+        "Alert",
         "Button",
     ],
     "MARKET_DATA": ["Page", "List", "MarketCard", "MetricCard", "Chart", "Table", "TableRow", "StatusChip", "Alert", "NewsList", "NewsCard", "Image", "Badge"],

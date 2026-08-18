@@ -21,7 +21,15 @@ async def handle_action(payload: dict[str, Any]) -> dict[str, Any]:
             "messages": error_surface("Action blocked", f"Remote action not allowlisted: {name}"),
         }
     results = {
-        "book_trip": {"status": "ok", "bookingId": "TR-1024", "destination": context.get("destination")},
+        "book_trip": {
+            "status": "confirmed",
+            "bookingId": "TR-1024",
+            "destination": context.get("destination"),
+            "origin": context.get("origin"),
+            "hotel": context.get("hotel"),
+            "total": context.get("total"),
+            "message": f"Mock trip to {context.get('destination') or 'your destination'} booked successfully.",
+        },
         "request_refund": {"status": "ok", "refundId": "RF-331", "orderId": context.get("orderId")},
         "pay_invoice": {"status": "ok", "paymentId": "PAY-19", "invoiceId": context.get("id")},
         "release_milestone": {"status": "ok", "payoutId": "PO-88", "milestoneId": context.get("id")},

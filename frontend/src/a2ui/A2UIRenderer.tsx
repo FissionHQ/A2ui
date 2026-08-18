@@ -117,9 +117,11 @@ export default function A2UIRenderer({ surfaceId }: { surfaceId: string }) {
   }
   if (!surface) {
     return (
-      <div className="flex h-full min-h-[320px] flex-col items-center justify-center text-center text-muted-foreground">
-        <p className="text-lg font-medium text-foreground">What do you want to do?</p>
-        <p className="mt-1 max-w-sm text-sm">Ask in natural language. The canvas will become weather, news, travel, markets, shopping, fintech, or support — without reloading.</p>
+      <div className="flex h-full min-h-[520px] flex-col items-center justify-center text-center text-muted-foreground">
+        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[1.75rem] bg-gradient-to-br from-primary to-orange-400 text-2xl font-bold text-white shadow-2xl shadow-primary/25">A2</div>
+        <p className="text-3xl font-semibold tracking-[-0.04em] text-foreground">What should we explore?</p>
+        <p className="mt-3 max-w-md text-sm leading-relaxed">Ask naturally. This canvas reshapes itself into market intelligence, weather comparisons, travel plans, shopping tools, and more.</p>
+        <div className="mt-7 flex flex-wrap justify-center gap-2 text-xs font-medium"><span className="rounded-full bg-primary/10 px-3 py-1.5 text-primary">Markets</span><span className="rounded-full bg-violet-500/10 px-3 py-1.5 text-violet-600">Weather</span><span className="rounded-full bg-emerald-500/10 px-3 py-1.5 text-emerald-600">Travel</span></div>
       </div>
     );
   }

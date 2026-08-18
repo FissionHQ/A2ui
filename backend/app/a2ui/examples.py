@@ -180,13 +180,10 @@ def news_surface(data: dict[str, Any]) -> list[dict[str, Any]]:
 
 def travel_surface(data: dict[str, Any], focus: str = "full_plan") -> list[dict[str, Any]]:
     children = ["trip", "wx"]
-    pair: list[str] = []
     if focus != "hotels":
-        pair.append("flight")
+        children.append("flight")
     if focus != "flights":
-        pair.append("hotel")
-    if pair:
-        children.append("options")
+        children.extend(["hotel_note", "hotel_options"])
     children.extend(["price", "book"])
     components = [
         {"id": "root", "component": "Page", "children": children},
@@ -204,7 +201,6 @@ def travel_surface(data: dict[str, Any], focus: str = "full_plan") -> list[dict[
             "condition": {"path": "/travel/weather/condition"},
             "temperature": {"path": "/travel/weather/temperature"},
         },
-        {"id": "options", "component": "List", "children": pair or ["flight"]},
         {
             "id": "flight",
             "component": "FlightCard",
@@ -213,11 +209,23 @@ def travel_surface(data: dict[str, Any], focus: str = "full_plan") -> list[dict[
             "price": {"path": "/travel/flight/price"},
         },
         {
-            "id": "hotel",
+            "id": "hotel_note",
+            "component": "Alert",
+            "variant": "info",
+            "title": "Hotels matched to your stay",
+            "message": {"path": "/travel/hotelPreferenceNote"},
+        },
+        {
+            "id": "hotel_options",
+            "component": "List",
+            "children": {"componentId": "hotel_template", "path": "/travel/hotels"},
+        },
+        {
+            "id": "hotel_template",
             "component": "HotelCard",
-            "title": {"path": "/travel/hotel/title"},
-            "detail": {"path": "/travel/hotel/detail"},
-            "price": {"path": "/travel/hotel/price"},
+            "title": {"path": "/travel/hotels/@index/title"},
+            "detail": {"path": "/travel/hotels/@index/detail"},
+            "price": {"path": "/travel/hotels/@index/price"},
         },
         {
             "id": "price",
@@ -234,7 +242,12 @@ def travel_surface(data: dict[str, Any], focus: str = "full_plan") -> list[dict[
             "action": {
                 "event": {
                     "name": "book_trip",
-                    "context": {"destination": {"path": "/travel/destination"}},
+                    "context": {
+                        "destination": {"path": "/travel/destination"},
+                        "origin": {"path": "/travel/origin"},
+                        "hotel": {"path": "/travel/hotel/title"},
+                        "total": {"path": "/travel/total"},
+                    },
                 }
             },
         },
@@ -253,7 +266,7 @@ def market_surface(data: dict[str, Any], focus: str = "overview") -> list[dict[s
         children.append("metrics")
     if focus == "news_impact":
         children.extend(["impact_note", "impact_news"])
-    if focus in ("overview", "nifty"):
+    if focus in ("overview", "nifty", "news_impact"):
         children.append("chart")
     if focus in ("overview", "movers"):
         children.append("movers")

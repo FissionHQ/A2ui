@@ -21,12 +21,12 @@
     --color-zinc-900: #18181b;
     --color-zinc-950: #09090b;
 
-    --color-bg: #fafafa;
+    --color-bg: #f7f7f8;
     --color-surface: #ffffff;
     --color-text: #18181b;
     --color-text-muted: #71717a;
     --color-border: #e4e4e7;
-    --color-sidebar: #1c1e2e;
+    --color-sidebar: #111217;
 
     --background: var(--color-bg);
     --foreground: var(--color-text);
@@ -73,7 +73,7 @@
     --chart-5: #f59e0b;
     --chart-6: #f43f5e;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
   }
 
   .dark {
@@ -114,6 +114,7 @@
   body {
     margin: 0;
     @apply bg-background text-foreground antialiased;
+    background-image: radial-gradient(circle at 80% -10%, rgba(242, 80, 17, 0.08), transparent 35%);
   }
 }
 
@@ -122,6 +123,24 @@
   border-radius: 32px;
   overflow: hidden;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18);
+}
+
+.chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.thinking-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--primary);
+  animation: thinking-bounce 900ms ease-in-out infinite;
+}
+
+@keyframes thinking-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
+  30% { transform: translateY(-4px); opacity: 1; }
 }
 
 /* Skeleton shimmer gradient */

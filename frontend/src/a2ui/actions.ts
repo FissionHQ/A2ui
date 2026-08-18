@@ -70,5 +70,8 @@ export async function dispatchAction(
       apply({ version: "v1.0", actionResponse: json.actionResponse });
     }
     for (const m of json.messages || []) apply(m);
+    if (json.actionResponse?.value) {
+      window.dispatchEvent(new CustomEvent("a2ui-action-result", { detail: json.actionResponse.value }));
+    }
   }
 }

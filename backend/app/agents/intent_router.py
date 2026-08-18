@@ -10,13 +10,13 @@ from app.providers.shopping import query_grounded_in_prompt
 KEYWORD_RULES: list[tuple[str, str, str]] = [
     (r"refund|delayed|order|support|ticket|shipment|delivery", "CUSTOMER_SUPPORT", "REQUEST_REFUND"),
     (r"invoice|payout|milestone|freelancer|gst|overdue|receivable", "FINTECH", "INVOICES_ATTENTION"),
+    (r"trip|travel|flight|hotel|weekend|vacation|book.*(goa|manali|jaipur|kerala|paris)", "TRAVEL", "PLAN_TRIP"),
     (
         r"headphone|laptop|phone|shoes|buy|shop|₹|rs\.?|product|under \d|earbuds|tv|watch",
         "SHOPPING",
         "PRODUCT_SEARCH",
     ),
     (r"market|nifty|sensex|stock|share|indian market|bse|nse", "MARKET_DATA", "MARKET_OVERVIEW"),
-    (r"trip|travel|flight|hotel|weekend|vacation|book.*(goa|manali|jaipur|kerala|paris)", "TRAVEL", "PLAN_TRIP"),
     (r"news|headline|article|what's happening", "NEWS", "NEWS_TOPIC"),
     (r"weather|forecast|rain|temperature|humidity|climate|umbrella|hot|monsoon", "WEATHER", "WEATHER_FORECAST"),
 ]
@@ -161,14 +161,25 @@ def _extract_entities(text: str, domain: str) -> dict[str, Any]:
         elif "hotel" in lower and "flight" not in lower:
             focus = "hotels"
         budget = None
-        bm = re.search(r"₹\s*([\d,]+)", t) or re.search(r"under\s+([\d,]+)", t, re.I)
+        bm = re.search(r"₹\s*([\d,]+)", t) or re.search(r"under\s+₹?\s*([\d,]+)", t, re.I)
         if bm:
             budget = int(bm.group(1).replace(",", ""))
+        price_range = re.search(r"(?:between|within|from)\s+₹?\s*([\d,]+)\s*(?:[-–—]|to|and)\s*₹?\s*([\d,]+)", t, re.I)
+        meals = [meal for meal in ("breakfast", "dinner") if re.search(rf"\b{meal}\b", t, re.I)]
+        hotel_preferences = {
+            "nearAirport": True
+            if re.search(r"near (?:the )?airport|airport hotel|close to (?:the )?airport", t, re.I)
+            else None,
+            "meals": meals,
+            "minPrice": int(price_range.group(1).replace(",", "")) if price_range else None,
+            "maxPrice": int(price_range.group(2).replace(",", "")) if price_range else budget,
+        }
         return {
             "destination": dest_m.group(1) if dest_m else None,
             "origin": origin_m.group(1) if origin_m else None,
             "duration": "weekend" if re.search(r"weekend", t, re.I) else "trip",
             "budget": budget,
+            "hotelPreferences": hotel_preferences,
             "focus": focus,
         }
     if domain == "MARKET_DATA":
@@ -260,7 +271,14 @@ def _apply_history(result: dict[str, Any], text: str, history: list[dict[str, An
         result["source"] = "history-follow-up"
     if result.get("domain") == previous_domain:
         inherited = dict(previous.get("entities") or {})
-        inherited.update({k: v for k, v in (result.get("entities") or {}).items() if v not in (None, "", [], {})})
+        current = result.get("entities") or {}
+        if previous_domain == "TRAVEL" and isinstance(inherited.get("hotelPreferences"), dict):
+            preferences = dict(inherited["hotelPreferences"])
+            preferences.update(
+                {k: v for k, v in (current.get("hotelPreferences") or {}).items() if v not in (None, "", [], {})}
+            )
+            current = {**current, "hotelPreferences": preferences}
+        inherited.update({k: v for k, v in current.items() if v not in (None, "", [], {})})
         result["entities"] = inherited
         result["focus"] = result.get("focus") or inherited.get("focus") or previous.get("focus")
     return result
@@ -293,7 +311,9 @@ Fill only relevant keys:
 WEATHER: location, locations (ordered list when comparing places), date (today|tomorrow|weekend),
 focus (rain|temperature|humidity|forecast|comparison)
 NEWS: topic, timeRange
-TRAVEL: destination, origin, duration, budget (number INR or null), focus (flights|hotels|full_plan)
+TRAVEL: destination, origin, duration, budget (number INR or null), hotelPreferences
+({nearAirport:boolean, meals:[breakfast|dinner], minPrice:number|null, maxPrice:number|null}),
+focus (flights|hotels|full_plan)
 MARKET_DATA: market (usually INDIA), focus (overview|nifty|sensex|movers|news_impact)
 SHOPPING: query (product words), maxPrice (number or null), currency (INR)
 FINTECH: focus (invoices_attention|release_milestone|execute_payout)

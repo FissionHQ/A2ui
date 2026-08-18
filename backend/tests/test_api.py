@@ -67,8 +67,24 @@ async def test_stream_market_news_impact_surface():
 
 
 @pytest.mark.asyncio
+async def test_stream_travel_filters_hotel_preferences():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.post(
+            "/api/stream",
+            json={"text": "Show hotels near the airport in Goa with breakfast and dinner between ₹5,000-₹7,000"},
+        )
+        assert res.status_code == 200
+        assert "Airport Residency, Goa" in res.text
+        assert "Palm Grove, Goa" not in res.text
+        assert "hotel_options" in res.text
+
+
+@pytest.mark.asyncio
 async def test_remote_action_allowlist():
     bad = await handle_action({"name": "drop_database", "actionId": "1"})
     assert bad["actionResponse"]["error"]["code"] == "NOT_ALLOWLISTED"
     ok = await handle_action({"name": "book_trip", "actionId": "2", "context": {"destination": "Goa"}})
     assert ok["actionResponse"]["value"]["bookingId"] == "TR-1024"
+    assert ok["actionResponse"]["value"]["status"] == "confirmed"
+    assert "Goa" in ok["actionResponse"]["value"]["message"]

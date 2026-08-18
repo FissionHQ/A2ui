@@ -23,6 +23,25 @@ def test_intent_travel():
     assert r["entities"]["destination"] == "Goa"
 
 
+def test_travel_hotel_preferences_are_extracted():
+    r = classify_mock("Show hotels near the airport in Goa with breakfast and dinner between ₹5,000-₹7,000")
+    prefs = r["entities"]["hotelPreferences"]
+    assert r["domain"] == "TRAVEL"
+    assert r["entities"]["focus"] == "hotels"
+    assert prefs == {"nearAirport": True, "meals": ["breakfast", "dinner"], "minPrice": 5000, "maxPrice": 7000}
+
+
+@pytest.mark.asyncio
+async def test_mock_hotels_filter_by_preferences():
+    from app.providers.travel import MockHotelProvider
+
+    hotels = await MockHotelProvider().search_many(
+        "Goa",
+        {"nearAirport": True, "meals": ["breakfast", "dinner"], "minPrice": 5000, "maxPrice": 7000},
+    )
+    assert [hotel["title"] for hotel in hotels] == ["Airport Residency, Goa"]
+
+
 def test_intent_market():
     assert classify_mock("How is the Indian stock market doing?")["domain"] == "MARKET_DATA"
 

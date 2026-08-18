@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import {
   CloudSun,
   Newspaper,
@@ -42,24 +42,25 @@ function num(v: unknown): number | null {
 }
 
 export function Page({ children }: P) {
-  return <div className="flex flex-col gap-5">{children}</div>;
+  return <div className="flex flex-col gap-6 animate-fade-in-up">{children}</div>;
 }
 
 export function Card({ children }: P) {
-  return <div className="flex flex-col gap-4">{children}</div>;
+  return <div className="flex flex-col gap-4 rounded-2xl border border-white/70 bg-card/80 p-4 shadow-[0_18px_50px_-30px_rgba(15,23,42,.35)] backdrop-blur-xl">{children}</div>;
 }
 
 export function MetricCard(p: P) {
   const delta = num(p.delta);
   return (
-    <div className="rounded-xl bg-card px-4 py-3 shadow-sm ring-1 ring-border">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{text(p.title)}</div>
-      <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+    <div className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card/90 px-5 py-4 shadow-[0_14px_40px_-28px_rgba(15,23,42,.45)] transition duration-300 hover:-translate-y-0.5 hover:shadow-lg">
+      <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary via-amber-400 to-transparent opacity-80" />
+      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{text(p.title)}</div>
+      <div className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-foreground">
         {text(p.value, "—")}
         {p.unit ? <span className="ml-1 text-sm font-medium text-muted-foreground">{text(p.unit)}</span> : null}
       </div>
       {delta != null ? (
-        <div className={cn("text-sm font-medium", delta >= 0 ? "text-success" : "text-destructive")}>
+        <div className={cn("mt-2 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold", delta >= 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive")}>
           {delta >= 0 ? "+" : ""}
           {delta}%
         </div>
@@ -127,7 +128,7 @@ export function StatusChip(p: P) {
 export function Image(p: P) {
   const src = text(p.src ?? p.imageUrl);
   if (!src || src.startsWith("javascript:")) {
-    return <div className="h-28 w-full rounded-xl bg-muted" />;
+    return <div className="flex h-28 w-full items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 via-amber-100 to-muted"><Newspaper className="h-8 w-8 text-primary/70" /></div>;
   }
   if (!src.startsWith("https:") && !src.startsWith("/")) {
     return <div className="h-28 w-full rounded-xl bg-muted" />;
@@ -137,21 +138,41 @@ export function Image(p: P) {
 
 export function Chart(p: P) {
   const series = Array.isArray(p.series) ? (p.series as Array<{ label?: string; value?: number }>) : [];
-  const max = Math.max(1, ...series.map((s) => Number(s.value) || 0));
+  const gradientId = useId().replace(/:/g, "");
+  const values = series.map((s) => Number(s.value)).filter(Number.isFinite);
+  const min = values.length ? Math.min(...values) : 0;
+  const max = values.length ? Math.max(...values) : 1;
+  const range = Math.max(max - min, Math.abs(max) * 0.01, 1);
+  const points = series.map((s, i) => {
+    const x = series.length <= 1 ? 360 : 28 + (i / (series.length - 1)) * 664;
+    const y = 184 - ((Number(s.value) - min) / range) * 140;
+    return { x, y, value: Number(s.value), label: s.label };
+  });
+  const line = points.map((point) => `${point.x},${point.y}`).join(" ");
+  const area = points.length ? `28,190 ${line} 692,190` : "";
   return (
-    <div className="rounded-xl bg-card p-4 shadow-sm ring-1 ring-border">
-      <div className="mb-3 text-sm font-medium text-muted-foreground">{text(p.title)}</div>
-      <div className="flex h-28 items-end gap-2">
-        {series.map((s, i) => (
-          <div key={i} className="flex flex-1 flex-col items-center gap-1">
-            <div
-              className="w-full rounded-t-md bg-primary/80"
-              style={{ height: `${((Number(s.value) || 0) / max) * 100}%` }}
-            />
-            <span className="text-[10px] text-muted-foreground">{s.label}</span>
-          </div>
-        ))}
+    <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-[linear-gradient(145deg,rgba(255,255,255,.98),rgba(255,247,237,.84))] p-5 shadow-[0_24px_70px_-40px_rgba(242,80,17,.5)]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Market trajectory</div>
+          <div className="mt-1 text-lg font-semibold text-foreground">{text(p.title)}</div>
+        </div>
+        {values.length ? <div className="rounded-full bg-foreground px-3 py-1 text-xs font-semibold text-background">{values.at(-1)?.toLocaleString("en-IN")}</div> : null}
       </div>
+      {points.length ? (
+        <div className="mt-3">
+          <svg viewBox="0 0 720 210" role="img" aria-label={`${text(p.title)} chart`} className="h-auto w-full overflow-visible">
+            <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--primary)" stopOpacity=".28"/><stop offset="100%" stopColor="var(--primary)" stopOpacity="0"/></linearGradient></defs>
+            {[50, 95, 140, 185].map((y) => <line key={y} x1="28" y1={y} x2="692" y2={y} stroke="var(--border)" strokeDasharray="4 7" />)}
+            <polygon points={area} fill={`url(#${gradientId})`} />
+            <polyline points={line} fill="none" stroke="var(--primary)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+            {points.map((point, i) => <circle key={i} cx={point.x} cy={point.y} r="5" fill="var(--card)" stroke="var(--primary)" strokeWidth="3" />)}
+          </svg>
+          <div className="-mt-2 flex justify-between px-1 text-[10px] font-medium text-muted-foreground">
+            {series.map((s, i) => <span key={i}>{s.label}</span>)}
+          </div>
+        </div>
+      ) : <div className="mt-4 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Chart data is unavailable.</div>}
     </div>
   );
 }
@@ -269,17 +290,17 @@ export function WeatherCard(p: P) {
 
 export function NewsCard(p: P) {
   return (
-    <article className="flex gap-3 rounded-xl bg-card p-3 shadow-sm ring-1 ring-border">
-      <div className="w-24 shrink-0">
+    <article className="group flex gap-4 rounded-2xl border border-border/60 bg-card/90 p-4 shadow-[0_14px_45px_-32px_rgba(15,23,42,.5)] transition duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg">
+      <div className="w-24 shrink-0 overflow-hidden rounded-xl">
         <Image imageUrl={p.imageUrl} />
       </div>
       <div className="min-w-0">
         <Badge badge={p.badge} />
-        <h3 className="mt-1 font-semibold text-foreground">{text(p.title)}</h3>
-        <p className="text-sm text-muted-foreground">{text(p.summary)}</p>
+        <h3 className="mt-2 font-semibold leading-snug text-foreground transition-colors group-hover:text-primary">{text(p.title)}</h3>
+        <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{text(p.summary)}</p>
         <div className="mt-1 text-xs text-muted-foreground">{text(p.source)}</div>
-        <UiButton type="button" variant="link" className="mt-1 h-auto px-0" onClick={p.onAction}>
-          Open
+        <UiButton type="button" variant="link" className="mt-2 h-auto px-0 text-xs" onClick={p.onAction}>
+          Read story →
         </UiButton>
       </div>
     </article>
@@ -323,13 +344,15 @@ export function HotelCard(p: P) {
 
 export function MarketCard(p: P) {
   return (
-    <div className="flex items-center justify-between">
-      <div>
-        <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
-          <TrendingUp className="h-5 w-5 text-primary" />
+    <div className="relative overflow-hidden rounded-3xl bg-[radial-gradient(circle_at_top_right,rgba(251,146,60,.35),transparent_38%),linear-gradient(135deg,#18181b,#292524)] p-6 text-white shadow-2xl">
+      <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full border border-white/10" />
+      <div className="relative">
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-orange-200">Live market pulse</div>
+        <div className="flex items-center gap-3 text-2xl font-semibold tracking-tight">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/25"><TrendingUp className="h-5 w-5" /></span>
           {text(p.title)}
         </div>
-        <div className="text-xs text-muted-foreground">{text(p.asOf)}</div>
+        <div className="mt-2 text-xs text-white/55">Updated {text(p.asOf)}</div>
       </div>
     </div>
   );

@@ -103,8 +103,15 @@ async def run_domain(domain: str, entities: dict[str, Any], role: str) -> tuple[
         if origin:
             flight["title"] = f"{origin[:3].upper()} → {dest[:3].upper()}  ·  IndiGo 6E-214"
         notes.append(activity("tool", "Flight data retrieved"))
-        hotel = await MockHotelProvider().search(dest)
-        notes.append(activity("tool", "Hotel data retrieved"))
+        preferences = entities.get("hotelPreferences") or {}
+        hotels = await MockHotelProvider().search_many(dest, preferences)
+        if not hotels:
+            hotels = await MockHotelProvider().search_many(dest)
+            preference_note = "No exact hotel match; showing the closest available options."
+        else:
+            preference_note = "Hotels filtered to your airport, meal, and price preferences."
+        hotel = hotels[0]
+        notes.append(activity("tool", f"{len(hotels)} hotel options retrieved"))
         data = {
             "destination": dest,
             "origin": origin,
@@ -113,6 +120,9 @@ async def run_domain(domain: str, entities: dict[str, Any], role: str) -> tuple[
             "weather": wx,
             "flight": flight,
             "hotel": hotel,
+            "hotels": hotels,
+            "hotelPreferences": preferences,
+            "hotelPreferenceNote": preference_note,
             "total": int(flight["price"]) + int(hotel["price"]),
             "budget": entities.get("budget"),
             "focus": focus or "full_plan",

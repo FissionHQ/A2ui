@@ -112,7 +112,7 @@ def prompt_for_domain(domain: str) -> str:
     ui = {
         "WEATHER": "Pick from WeatherCard, MetricCard, ForecastChart/Chart, Alert. If the user only asked about rain, lead with rain MetricCard + Alert. If they asked humidity or temperature, emphasize that metric. Still include WeatherCard for place/date.",
         "NEWS": "Pick from NewsCard, NewsList, Image, Badge, Tabs. Title the experience around the requested topic. Tabs can match topic facets.",
-        "TRAVEL": "Pick from TravelCard, WeatherCard, FlightCard, HotelCard, MetricCard, Button (book_trip). If focus is flights, put FlightCard first and you may omit hotel. If hotels, invert. If a budget is set, show it as a MetricCard.",
+        "TRAVEL": "Pick from TravelCard, WeatherCard, FlightCard, HotelCard, MetricCard, Alert, Button (book_trip). Bind every matching hotel from toolResult.hotels; preserve airport distance, meal-plan, and price details. If focus is flights, you may omit hotels. If focus is hotels, emphasize all matched hotels. Never invent availability.",
         "MARKET_DATA": "Pick from MarketCard, MetricCard, Chart, Table, StatusChip, Alert, and NewsCard/NewsList. If focus is news_impact, lead with both index metrics, show the disclaimer, then bind news cards to toolResult.newsImpact.articles. Do not claim that correlation proves causation.",
         "SHOPPING": "Pick from ProductCard, ProductList, Rating, Price, CompareButton, CompareTray, Alert. Bind products to toolResult.products and compared to toolResult.compared. Heading must use toolResult.query. Never invent product titles.",
         "FINTECH": "Pick InvoiceTable + PayButton for invoices, MilestoneCard for milestones, MetricCard for totals. Respect user role.",
