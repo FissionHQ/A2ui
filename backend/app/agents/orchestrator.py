@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any, AsyncIterator
 
@@ -45,6 +46,31 @@ async def run_domain(domain: str, entities: dict[str, Any], role: str) -> tuple[
     notes: list[dict[str, Any]] = []
     focus = entities.get("focus")
     if domain == "WEATHER":
+        locations = list(entities.get("locations") or [])
+        if len(locations) > 1:
+            date = entities.get("date") or "tomorrow"
+
+            async def fetch(location: str):
+                return await _safe_call(
+                    lambda: OpenMeteoWeatherProvider().forecast(location, date),
+                    lambda: MockWeatherProvider().forecast(location, date),
+                    "weather",
+                )
+
+            results = await asyncio.gather(*(fetch(location) for location in locations[:4]))
+            notes.append(
+                activity(
+                    "tool",
+                    f"Weather comparison for {', '.join(locations[:4])} via "
+                    f"{', '.join(source for _, source in results)}",
+                )
+            )
+            return {
+                "comparison": True,
+                "date": date,
+                "locations": [data for data, _ in results],
+                "focus": "comparison",
+            }, notes
         loc = entities.get("location") or "Hyderabad"
         date = entities.get("date") or "tomorrow"
         data, src = await _safe_call(
@@ -93,11 +119,36 @@ async def run_domain(domain: str, entities: dict[str, Any], role: str) -> tuple[
         }
         return data, notes
     if domain == "MARKET_DATA":
-        data, src = await _safe_call(
+        market_call = _safe_call(
             lambda: YahooMarketProvider().overview(entities.get("market") or "INDIA"),
             lambda: MockMarketProvider().overview("INDIA"),
             "market",
         )
+        if focus == "news_impact":
+            news_call = _safe_call(
+                lambda: HackerNewsProvider().headlines("India stock market Nifty Sensex"),
+                lambda: MockNewsProvider().headlines("NIFTY and SENSEX"),
+                "market-news",
+            )
+            (data, src), (news, news_src) = await asyncio.gather(market_call, news_call)
+            articles = []
+            for article in news.get("articles") or []:
+                articles.append(
+                    {
+                        **article,
+                        "topic": article.get("impact") or "Market context",
+                    }
+                )
+            data["newsImpact"] = {
+                "articles": articles,
+                "source": news_src,
+                "disclaimer": (
+                    "News and market moves are shown together as context, not proof that a story caused an index move."
+                ),
+            }
+            notes.append(activity("tool", f"Market-impact news via {news_src}"))
+        else:
+            data, src = await market_call
         data["focus"] = focus or "overview"
         notes.append(activity("tool", f"Market data via {src}"))
         return data, notes
@@ -197,6 +248,18 @@ async def orchestrate(text: str, user_context: dict[str, Any] | None) -> AsyncIt
     history = ctx.get("history") if isinstance(ctx.get("history"), list) else None
     routed = await classify(text, history)
     domain = routed["domain"]
+    yield {
+        "version": "demo",
+        "routingResult": {
+            "domain": domain,
+            "intent": routed.get("intent"),
+            "entities": routed.get("entities") or {},
+            "focus": routed.get("focus") or (routed.get("entities") or {}).get("focus"),
+            "confidence": routed.get("confidence"),
+            "missingFields": routed.get("missingFields") or [],
+            "clarificationQuestion": routed.get("clarificationQuestion"),
+        },
+    }
     yield activity("intent_detected", f"Intent detected: {domain}", "ok")
     if routed.get("disabled"):
         yield pipeline("A2UI_GENERATOR")
@@ -206,7 +269,7 @@ async def orchestrate(text: str, user_context: dict[str, Any] | None) -> AsyncIt
     if routed.get("clarify"):
         yield pipeline("A2UI_GENERATOR")
         yield activity("clarify", "Prompt did not map cleanly to a domain", "ok")
-        for msg in clarification_surface(text):
+        for msg in clarification_surface(text, routed.get("clarificationQuestion")):
             yield msg
         return
     yield pipeline("DOMAIN_AGENTS")

@@ -57,6 +57,50 @@ STOPWORDS = {
     "trip",
 }
 
+REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
+    "WEATHER": ("location",),
+    "TRAVEL": ("destination",),
+    "SHOPPING": ("query",),
+}
+
+CLARIFICATION_QUESTIONS = {
+    ("WEATHER", "location"): "Which city or location should I check?",
+    ("TRAVEL", "destination"): "Where would you like to travel?",
+    ("SHOPPING", "query"): "What product are you looking for?",
+}
+
+CITY_ALIASES = {
+    "hyderabad": "Hyderabad", "mumbai": "Mumbai", "delhi": "Delhi",
+    "new delhi": "New Delhi", "bengaluru": "Bengaluru", "bangalore": "Bengaluru",
+    "banglore": "Bengaluru", "chennai": "Chennai", "goa": "Goa", "pune": "Pune",
+    "kolkata": "Kolkata", "jaipur": "Jaipur", "london": "London",
+    "singapore": "Singapore", "dubai": "Dubai",
+}
+
+
+def _weather_locations(text: str) -> list[str]:
+    hits: list[tuple[int, str]] = []
+    lower = text.lower()
+    for alias, canonical in CITY_ALIASES.items():
+        hits.extend((m.start(), canonical) for m in re.finditer(rf"\b{re.escape(alias)}\b", lower))
+    ordered: list[str] = []
+    for _, city in sorted(hits):
+        if city not in ordered:
+            ordered.append(city)
+    return ordered
+
+
+def _normalize_locations(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    result: list[str] = []
+    for item in value:
+        raw = str(item).strip()
+        city = CITY_ALIASES.get(raw.lower(), raw)
+        if city and city not in result:
+            result.append(city)
+    return result[:4]
+
 
 def _focus_weather(text: str) -> str:
     lower = text.lower()
@@ -72,6 +116,7 @@ def _focus_weather(text: str) -> str:
 def _extract_entities(text: str, domain: str) -> dict[str, Any]:
     t = text
     if domain == "WEATHER":
+        locations = _weather_locations(t)
         m = re.search(
             r"(?:in|for|at|near)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)",
             t,
@@ -80,16 +125,22 @@ def _extract_entities(text: str, domain: str) -> dict[str, Any]:
             t,
             re.I,
         )
-        loc = m.group(1) if m else "Hyderabad"
+        loc = locations[0] if locations else (m.group(1) if m else None)
         if re.search(r"\bweekend\b", t, re.I):
             date = "weekend"
         elif re.search(r"\btomorrow\b", t, re.I):
             date = "tomorrow"
         else:
             date = "today"
-        return {"location": loc, "date": date, "focus": _focus_weather(t)}
+        comparison = len(locations) > 1 or bool(re.search(r"\b(?:compare|comparison|versus|vs\.?)\b", t, re.I))
+        return {
+            "location": loc,
+            "locations": locations if len(locations) > 1 else [],
+            "date": date,
+            "focus": "comparison" if comparison else _focus_weather(t),
+        }
     if domain == "NEWS":
-        topic = "AI"
+        topic = "Top stories"
         m = re.search(r"(?:about|on|regarding)\s+([A-Za-z0-9][A-Za-z0-9 \-]{1,40})", t, re.I)
         if m:
             topic = m.group(1).strip()
@@ -114,15 +165,17 @@ def _extract_entities(text: str, domain: str) -> dict[str, Any]:
         if bm:
             budget = int(bm.group(1).replace(",", ""))
         return {
-            "destination": dest_m.group(1) if dest_m else "Goa",
-            "origin": origin_m.group(1) if origin_m else "Hyderabad",
+            "destination": dest_m.group(1) if dest_m else None,
+            "origin": origin_m.group(1) if origin_m else None,
             "duration": "weekend" if re.search(r"weekend", t, re.I) else "trip",
             "budget": budget,
             "focus": focus,
         }
     if domain == "MARKET_DATA":
         focus = "overview"
-        if re.search(r"nifty", t, re.I):
+        if re.search(r"news|headline|impact|why.*(?:move|up|down)|what.*(?:moved|affected)", t, re.I):
+            focus = "news_impact"
+        elif re.search(r"nifty", t, re.I):
             focus = "nifty"
         elif re.search(r"sensex", t, re.I):
             focus = "sensex"
@@ -175,6 +228,59 @@ def classify_mock(text: str) -> dict[str, Any]:
     }
 
 
+def _semantic_state(history: list[dict[str, Any]] | None) -> dict[str, Any] | None:
+    for item in reversed(history or []):
+        state = item.get("state")
+        if isinstance(state, dict) and state.get("domain"):
+            return state
+    return None
+
+
+def _looks_like_follow_up(text: str) -> bool:
+    return bool(
+        re.search(
+            r"^(?:and |also |what about |how about |make (?:it|them) |show (?:me )?more|cheaper|tomorrow|today|next )",
+            text.strip(),
+            re.I,
+        )
+    )
+
+
+def _apply_history(result: dict[str, Any], text: str, history: list[dict[str, Any]] | None) -> dict[str, Any]:
+    previous = _semantic_state(history)
+    if not previous:
+        return result
+    previous_domain = str(previous.get("domain") or "")
+    if result.get("domain") == "UNKNOWN" and _looks_like_follow_up(text):
+        result = classify_mock(text)
+        result["domain"] = previous_domain
+        result["intent"] = str(previous.get("intent") or "FOLLOW_UP")
+        result["entities"] = _extract_entities(text, previous_domain)
+        result["confidence"] = 0.72
+        result["source"] = "history-follow-up"
+    if result.get("domain") == previous_domain:
+        inherited = dict(previous.get("entities") or {})
+        inherited.update({k: v for k, v in (result.get("entities") or {}).items() if v not in (None, "", [], {})})
+        result["entities"] = inherited
+        result["focus"] = result.get("focus") or inherited.get("focus") or previous.get("focus")
+    return result
+
+
+def _add_clarification(result: dict[str, Any]) -> dict[str, Any]:
+    domain = str(result.get("domain") or "UNKNOWN")
+    entities = result.get("entities") or {}
+    missing = [field for field in REQUIRED_FIELDS.get(domain, ()) if entities.get(field) in (None, "", [], {})]
+    if domain == "WEATHER" and entities.get("locations"):
+        missing = [field for field in missing if field != "location"]
+    result["missingFields"] = missing
+    if missing:
+        result["clarify"] = True
+        result["clarificationQuestion"] = CLARIFICATION_QUESTIONS.get(
+            (domain, missing[0]), "Could you provide a little more detail?"
+        )
+    return result
+
+
 ROUTER_SYSTEM = """You route natural-language requests for one Indian business demo app.
 
 Pick exactly one domain:
@@ -184,10 +290,11 @@ or UNKNOWN if it is unrelated (poetry, math homework, coding, etc.).
 Extract entities that actually appear in the prompt. Do not invent a city, product, or topic the user did not mention.
 Fill only relevant keys:
 
-WEATHER: location, date (today|tomorrow|weekend), focus (rain|temperature|humidity|forecast)
+WEATHER: location, locations (ordered list when comparing places), date (today|tomorrow|weekend),
+focus (rain|temperature|humidity|forecast|comparison)
 NEWS: topic, timeRange
 TRAVEL: destination, origin, duration, budget (number INR or null), focus (flights|hotels|full_plan)
-MARKET_DATA: market (usually INDIA), focus (overview|nifty|sensex|movers)
+MARKET_DATA: market (usually INDIA), focus (overview|nifty|sensex|movers|news_impact)
 SHOPPING: query (product words), maxPrice (number or null), currency (INR)
 FINTECH: focus (invoices_attention|release_milestone|execute_payout)
 CUSTOMER_SUPPORT: issue, desiredAction (refund|status)
@@ -210,6 +317,12 @@ def _merge_entities(text: str, domain: str, llm_entities: Any) -> dict[str, Any]
     for k, v in llm_entities.items():
         if v not in (None, "", [], {}):
             merged[k] = v
+    if domain == "WEATHER":
+        merged["locations"] = base.get("locations") or _normalize_locations(merged.get("locations"))
+        if merged["locations"]:
+            merged["location"] = merged["locations"][0]
+            if len(merged["locations"]) > 1:
+                merged["focus"] = "comparison"
     if domain == "SHOPPING":
         llm_query = str(merged.get("query") or "")
         if llm_query and not query_grounded_in_prompt(llm_query, text):
@@ -253,9 +366,10 @@ async def classify(text: str, history: list[dict[str, Any]] | None = None) -> di
         except Exception:
             result = classify_mock(text)
             result["source"] = "mock-after-llm-error"
+    result = _apply_history(result, text, history)
     domains = enabled_domains()
     if result["domain"] not in domains and result["domain"] != "UNKNOWN":
         result["disabled"] = True
     if result["domain"] == "UNKNOWN" or float(result.get("confidence") or 0) < 0.35:
         result["clarify"] = True
-    return result
+    return _add_clarification(result)

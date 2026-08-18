@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { SurfaceState } from "../a2ui/types";
+import type { RoutingState } from "../a2ui/sseClient";
 
 export type ChatMessage = {
   id: string;
@@ -10,16 +11,17 @@ export type ChatMessage = {
   domain?: string;
   surfaceId?: string;
   surface?: SurfaceState;
+  state?: RoutingState;
 };
 
 type ChatStore = {
   messages: ChatMessage[];
   activeTurnId: string | null;
   addUser: (text: string) => string;
-  addAssistant: (payload: { text: string; domain?: string; surfaceId?: string; surface?: SurfaceState }) => string;
+  addAssistant: (payload: { text: string; domain?: string; surfaceId?: string; surface?: SurfaceState; state?: RoutingState }) => string;
   setActiveTurn: (id: string | null) => void;
   clearHistory: () => void;
-  historyForApi: () => Array<{ role: "user" | "assistant"; content: string }>;
+  historyForApi: () => Array<{ role: "user" | "assistant"; content: string; state?: RoutingState }>;
 };
 
 export const useChatStore = create<ChatStore>()(
@@ -35,7 +37,7 @@ export const useChatStore = create<ChatStore>()(
         });
         return id;
       },
-      addAssistant: ({ text, domain, surfaceId, surface }) => {
+      addAssistant: ({ text, domain, surfaceId, surface, state }) => {
         const id = crypto.randomUUID();
         set({
           messages: [
@@ -48,6 +50,7 @@ export const useChatStore = create<ChatStore>()(
               domain,
               surfaceId,
               surface: surface ? structuredClone(surface) : undefined,
+              state,
             },
           ],
           activeTurnId: id,
@@ -59,7 +62,7 @@ export const useChatStore = create<ChatStore>()(
       historyForApi: () =>
         get()
           .messages.slice(-12)
-          .map((m) => ({ role: m.role, content: m.text })),
+          .map((m) => ({ role: m.role, content: m.text, ...(m.state ? { state: m.state } : {}) })),
     }),
     {
       name: "a2ui-demo-chat",

@@ -29,7 +29,7 @@ class StreamBody(BaseModel):
     text: str
     userContext: dict[str, Any] | None = None
     activeSurfaceId: str | None = None
-    history: list[dict[str, str]] | None = None
+    history: list[dict[str, Any]] | None = None
 
 
 class ActionBody(BaseModel):

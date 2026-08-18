@@ -89,6 +89,57 @@ def weather_surface(data: dict[str, Any], focus: str = "forecast") -> list[dict[
     return envelope("weather_surface", components, "/weather", data)
 
 
+def weather_comparison_surface(data: dict[str, Any]) -> list[dict[str, Any]]:
+    groups: list[str] = []
+    components: list[dict[str, Any]] = []
+    for index, forecast in enumerate(data.get("locations") or []):
+        base = f"/weather/locations/{index}"
+        group_id = f"location_{index}"
+        card_id = f"weather_{index}"
+        metric_list_id = f"metrics_{index}"
+        metric_ids = [f"temperature_{index}", f"humidity_{index}", f"rain_{index}"]
+        groups.append(group_id)
+        components.extend(
+            [
+                {"id": group_id, "component": "Card", "children": [card_id, metric_list_id]},
+                {
+                    "id": card_id,
+                    "component": "WeatherCard",
+                    "location": {"path": f"{base}/location"},
+                    "condition": {"path": f"{base}/condition"},
+                    "temperature": {"path": f"{base}/temperature"},
+                    "date": {"path": f"{base}/date"},
+                },
+                {"id": metric_list_id, "component": "List", "children": metric_ids},
+                {
+                    "id": metric_ids[0], "component": "MetricCard",
+                    "title": f"{forecast.get('location', '')} · Temperature", "unit": "°C",
+                    "value": {"path": f"{base}/temperature"},
+                },
+                {
+                    "id": metric_ids[1], "component": "MetricCard",
+                    "title": f"{forecast.get('location', '')} · Humidity", "unit": "%",
+                    "value": {"path": f"{base}/humidity"},
+                },
+                {
+                    "id": metric_ids[2], "component": "MetricCard",
+                    "title": f"{forecast.get('location', '')} · Rain chance", "unit": "%",
+                    "value": {"path": f"{base}/rainProbability"},
+                },
+            ]
+        )
+    return envelope(
+        "weather_comparison_surface",
+        [
+            {"id": "root", "component": "Page", "children": ["comparison"]},
+            {"id": "comparison", "component": "List", "children": groups},
+            *components,
+        ],
+        "/weather",
+        data,
+    )
+
+
 def news_surface(data: dict[str, Any]) -> list[dict[str, Any]]:
     components = [
         {"id": "root", "component": "Page", "children": ["tabs", "list"]},
@@ -200,6 +251,8 @@ def market_surface(data: dict[str, Any], focus: str = "overview") -> list[dict[s
         metric_ids.append("sensex")
     if metric_ids:
         children.append("metrics")
+    if focus == "news_impact":
+        children.extend(["impact_note", "impact_news"])
     if focus in ("overview", "nifty"):
         children.append("chart")
     if focus in ("overview", "movers"):
@@ -238,6 +291,33 @@ def market_surface(data: dict[str, Any], focus: str = "overview") -> list[dict[s
             "component": "Table",
             "columns": ["Symbol", "Last", "Change", "Status"],
             "rowsPath": "/market/movers",
+        },
+        {
+            "id": "impact_note",
+            "component": "Alert",
+            "variant": "warning",
+            "title": "What may be influencing the market",
+            "message": {"path": "/market/newsImpact/disclaimer"},
+        },
+        {
+            "id": "impact_news",
+            "component": "NewsList",
+            "children": {"componentId": "impact_article", "path": "/market/newsImpact/articles"},
+        },
+        {
+            "id": "impact_article",
+            "component": "NewsCard",
+            "title": {"path": "/market/newsImpact/articles/@index/title"},
+            "source": {"path": "/market/newsImpact/articles/@index/source"},
+            "summary": {"path": "/market/newsImpact/articles/@index/summary"},
+            "imageUrl": {"path": "/market/newsImpact/articles/@index/imageUrl"},
+            "badge": {"path": "/market/newsImpact/articles/@index/topic"},
+            "action": {
+                "event": {
+                    "name": "open_news",
+                    "context": {"url": {"path": "/market/newsImpact/articles/@index/url"}},
+                }
+            },
         },
     ]
     return envelope("market_surface", components, "/market", data)
@@ -429,7 +509,11 @@ def error_surface(title: str, message: str) -> list[dict[str, Any]]:
     )
 
 
-def clarification_surface(prompt: str) -> list[dict[str, Any]]:
+def clarification_surface(prompt: str, question: str | None = None) -> list[dict[str, Any]]:
+    specific = question or (
+        f"I didn't map “{prompt}” to a single domain. Try weather, news, travel, "
+        "Indian markets, shopping, invoices/milestones, or an order/refund."
+    )
     return envelope(
         "clarify_surface",
         [
@@ -438,11 +522,8 @@ def clarification_surface(prompt: str) -> list[dict[str, Any]]:
                 "id": "alert",
                 "component": "Alert",
                 "variant": "info",
-                "title": "I can help across these experiences",
-                "message": (
-                    f"I didn't map “{prompt}” to a single domain. Try weather, news, travel, "
-                    "Indian markets, shopping, invoices/milestones, or an order/refund."
-                ),
+                "title": "One detail needed",
+                "message": specific,
             },
         ],
         "/",
@@ -458,7 +539,9 @@ def build_surface(
 ) -> list[dict[str, Any]]:
     focus = focus or data.get("focus") or ""
     builders = {
-        "WEATHER": lambda: weather_surface(data, focus or "forecast"),
+        "WEATHER": lambda: weather_comparison_surface(data)
+        if data.get("comparison")
+        else weather_surface(data, focus or "forecast"),
         "NEWS": lambda: news_surface(data),
         "TRAVEL": lambda: travel_surface(data, focus or "full_plan"),
         "MARKET_DATA": lambda: market_surface(data, focus or "overview"),

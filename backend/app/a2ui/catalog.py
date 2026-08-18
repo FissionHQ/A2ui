@@ -63,7 +63,7 @@ REMOTE_EVENTS = {
 }
 
 DOMAIN_COMPONENTS: dict[str, list[str]] = {
-    "WEATHER": ["Page", "List", "WeatherCard", "MetricCard", "ForecastChart", "Chart", "Alert"],
+    "WEATHER": ["Page", "Card", "List", "WeatherCard", "MetricCard", "ForecastChart", "Chart", "Alert"],
     "NEWS": ["Page", "NewsCard", "NewsList", "List", "Image", "Badge", "Tabs"],
     "TRAVEL": [
         "Page",
@@ -75,7 +75,7 @@ DOMAIN_COMPONENTS: dict[str, list[str]] = {
         "MetricCard",
         "Button",
     ],
-    "MARKET_DATA": ["Page", "List", "MarketCard", "MetricCard", "Chart", "Table", "TableRow", "StatusChip"],
+    "MARKET_DATA": ["Page", "List", "MarketCard", "MetricCard", "Chart", "Table", "TableRow", "StatusChip", "Alert", "NewsList", "NewsCard", "Image", "Badge"],
     "SHOPPING": [
         "Page",
         "ProductCard",

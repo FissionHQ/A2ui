@@ -127,6 +127,8 @@ export default function DemoShell() {
       const surface = result.surfaceId ? useA2UIStore.getState().surfaces[result.surfaceId] : undefined;
       const label = result.error
         ? `Could not render: ${result.error}`
+        : result.routing?.clarificationQuestion
+          ? result.routing.clarificationQuestion
         : result.domain
           ? `${result.domain.replace(/_/g, " ")} experience ready`
           : "Experience updated";
@@ -135,6 +137,7 @@ export default function DemoShell() {
         domain: result.domain ?? undefined,
         surfaceId: result.surfaceId ?? undefined,
         surface,
+        state: result.routing ?? undefined,
       });
     } finally {
       setBusy(false);

@@ -4,6 +4,17 @@ export type StreamResult = {
   domain: string | null;
   surfaceId: string | null;
   error: string | null;
+  routing: RoutingState | null;
+};
+
+export type RoutingState = {
+  domain: string;
+  intent?: string;
+  entities: Record<string, unknown>;
+  focus?: string;
+  confidence?: number;
+  missingFields?: string[];
+  clarificationQuestion?: string;
 };
 
 function consume(store: ReturnType<typeof useA2UIStore.getState>, chunk: string) {
@@ -33,7 +44,7 @@ function domainFromActivity(store: ReturnType<typeof useA2UIStore.getState>): st
 export async function streamIntent(
   text: string,
   userContext: unknown,
-  history: Array<{ role: "user" | "assistant"; content: string }> = [],
+  history: Array<{ role: "user" | "assistant"; content: string; state?: RoutingState }> = [],
 ): Promise<StreamResult> {
   const store = useA2UIStore.getState();
   store.beginTurn();
@@ -47,18 +58,28 @@ export async function streamIntent(
       version: "demo",
       agentActivity: { step: "sse", detail: `SSE failed: ${res.status}`, status: "error" },
     });
-    return { domain: null, surfaceId: null, error: `SSE failed: ${res.status}` };
+    return { domain: null, surfaceId: null, error: `SSE failed: ${res.status}`, routing: null };
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
+  let routing: RoutingState | null = null;
   while (true) {
     const { done, value } = await reader.read();
     if (value) buf += decoder.decode(value, { stream: true });
     if (done) buf += decoder.decode();
     const parts = buf.split(/\r?\n\r?\n/);
     buf = done ? "" : parts.pop() || "";
-    for (const chunk of parts) consume(store, chunk);
+    for (const chunk of parts) {
+      const line = chunk.replace(/\r/g, "").split("\n").find((l) => l.startsWith("data:"));
+      if (line) {
+        try {
+          const parsed = JSON.parse(line.slice(5).trimStart()) as { routingResult?: RoutingState };
+          if (parsed.routingResult) routing = parsed.routingResult;
+        } catch { /* regular consumer reports malformed payloads */ }
+      }
+      consume(store, chunk);
+    }
     if (done) {
       if (buf.trim()) consume(store, buf);
       break;
@@ -69,5 +90,6 @@ export async function streamIntent(
     domain: domainFromActivity(final),
     surfaceId: final.activeSurfaceId,
     error: final.canvasError,
+    routing,
   };
 }

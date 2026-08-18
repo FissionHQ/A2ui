@@ -1,7 +1,7 @@
 from app.a2ui.catalog import COMPONENT_NAMES
 from app.a2ui.json_pointer import JsonPointerError, get, set_value
 from app.a2ui.validate import A2UIValidationError, validate_message
-from app.agents.intent_router import classify_mock
+from app.agents.intent_router import classify, classify_mock
 from app.a2ui.examples import build_surface
 from app.a2ui.catalog import REMOTE_EVENTS
 import pytest
@@ -25,6 +25,12 @@ def test_intent_travel():
 
 def test_intent_market():
     assert classify_mock("How is the Indian stock market doing?")["domain"] == "MARKET_DATA"
+
+
+def test_intent_market_news_impact():
+    r = classify_mock("What news impacted Nifty or Sensex?")
+    assert r["domain"] == "MARKET_DATA"
+    assert r["entities"]["focus"] == "news_impact"
 
 
 def test_intent_shopping():
@@ -82,9 +88,45 @@ def test_intent_weather_rain_focus():
     assert r["entities"]["focus"] == "rain"
 
 
+def test_intent_weather_comparison_extracts_and_normalizes_cities():
+    r = classify_mock("Compare Hyderabad weather to Banglore weather")
+    assert r["domain"] == "WEATHER"
+    assert r["entities"]["locations"] == ["Hyderabad", "Bengaluru"]
+    assert r["entities"]["focus"] == "comparison"
+
+
 def test_intent_unknown_clarifies():
     r = classify_mock("Write a haiku about entropy")
     assert r["domain"] == "UNKNOWN"
+
+
+@pytest.mark.asyncio
+async def test_missing_weather_location_requests_clarification():
+    r = await classify("Will it rain tomorrow?")
+    assert r["domain"] == "WEATHER"
+    assert r["entities"]["location"] is None
+    assert r["missingFields"] == ["location"]
+    assert r["clarificationQuestion"] == "Which city or location should I check?"
+
+
+@pytest.mark.asyncio
+async def test_semantic_history_resolves_follow_up():
+    history = [
+        {
+            "role": "assistant",
+            "content": "WEATHER experience ready",
+            "state": {
+                "domain": "WEATHER",
+                "intent": "WEATHER_FORECAST",
+                "entities": {"location": "Jaipur", "date": "today", "focus": "forecast"},
+            },
+        }
+    ]
+    r = await classify("What about tomorrow?", history)
+    assert r["domain"] == "WEATHER"
+    assert r["entities"]["location"] == "Jaipur"
+    assert r["entities"]["date"] == "tomorrow"
+    assert r["missingFields"] == []
 
 
 
@@ -135,3 +177,41 @@ def test_surface_lifecycle_each_domain():
         assert keys[2] == "updateDataModel"
         for m in msgs:
             validate_message(m)
+
+
+def test_weather_comparison_surface_contains_both_cities():
+    data = {
+        "comparison": True,
+        "focus": "comparison",
+        "locations": [
+            {"location": "Hyderabad", "temperature": 31, "humidity": 62, "rainProbability": 20},
+            {"location": "Bengaluru", "temperature": 27, "humidity": 70, "rainProbability": 40},
+        ],
+    }
+    messages = build_surface("WEATHER", data)
+    components = messages[1]["updateComponents"]["components"]
+    assert any(c["id"] == "weather_0" for c in components)
+    assert any(c["id"] == "weather_1" for c in components)
+    for message in messages:
+        validate_message(message)
+
+
+def test_market_news_impact_surface_has_indices_and_news():
+    data = {
+        "title": "Indian markets", "asOf": "now",
+        "nifty": {"value": 24780, "changePct": 0.6},
+        "sensex": {"value": 81240, "changePct": 0.4},
+        "focus": "news_impact",
+        "newsImpact": {
+            "disclaimer": "Context, not proof of causation.",
+            "articles": [{"title": "Rates", "source": "Wire", "summary": "Banks moved", "topic": "Financials", "url": "https://example.com", "imageUrl": ""}],
+        },
+    }
+    messages = build_surface("MARKET_DATA", data, focus="news_impact")
+    components = messages[1]["updateComponents"]["components"]
+    root = next(c for c in components if c["id"] == "root")
+    assert "metrics" in root["children"]
+    assert "impact_note" in root["children"]
+    assert "impact_news" in root["children"]
+    for message in messages:
+        validate_message(message)

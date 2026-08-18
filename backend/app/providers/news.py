@@ -13,6 +13,32 @@ class NewsProvider:
 class MockNewsProvider(NewsProvider):
     async def headlines(self, topic: str = "AI") -> dict[str, Any]:
         topic = topic or "AI"
+        if "nifty" in topic.lower() or "sensex" in topic.lower():
+            return {
+                "activeTab": "market",
+                "topic": topic,
+                "articles": [
+                    {
+                        "title": "Banking shares react to interest-rate expectations",
+                        "source": "Demo Market Wire",
+                        "summary": "Rate-sensitive financial stocks can influence both benchmark indices because of their large index weights.",
+                        "topic": topic, "impact": "Potential impact · Financials", "url": "https://example.com/market-1", "imageUrl": "",
+                    },
+                    {
+                        "title": "Crude-oil movement puts energy and import costs in focus",
+                        "source": "Demo Commodities Desk",
+                        "summary": "Oil-price changes may affect energy companies, inflation expectations, and other import-sensitive sectors.",
+                        "topic": topic, "impact": "Potential impact · Energy", "url": "https://example.com/market-2", "imageUrl": "",
+                    },
+                    {
+                        "title": "Global technology sentiment spills into Indian IT stocks",
+                        "source": "Demo Global Markets",
+                        "summary": "Moves in overseas technology shares and currency expectations can shape sentiment toward Indian IT exporters.",
+                        "topic": topic, "impact": "Potential impact · IT", "url": "https://example.com/market-3", "imageUrl": "",
+                    },
+                ],
+                "source": "mock",
+            }
         return {
             "activeTab": "ai",
             "topic": topic,
