@@ -18,6 +18,8 @@ from app.providers.shopping import MockShoppingProvider
 from app.providers.support import MockSupportProvider
 from app.providers.travel import MockFlightProvider, MockHotelProvider
 from app.providers.weather import MockWeatherProvider, OpenMeteoWeatherProvider
+from app.providers.movies import MockMoviesProvider, OmdbMoviesProvider
+from app.providers.books import MockBooksProvider, OpenLibraryBooksProvider
 
 
 def activity(step: str, detail: str, status: str = "ok") -> dict[str, Any]:
@@ -183,6 +185,24 @@ async def run_domain(domain: str, entities: dict[str, Any], role: str) -> tuple[
         data["focus"] = entities.get("desiredAction") or "refund"
         notes.append(activity("tool", "Order timeline retrieved"))
         return data, notes
+    if domain == "MOVIES":
+        query = entities.get("query") or "Inception"
+        data, src = await _safe_call(
+            lambda: OmdbMoviesProvider().search(query),
+            lambda: MockMoviesProvider().search(query),
+            "movies",
+        )
+        notes.append(activity("tool", f"Movies '{query}' via {src}"))
+        return data, notes
+    if domain == "BOOKS":
+        query = entities.get("query") or "fiction bestsellers"
+        data, src = await _safe_call(
+            lambda: OpenLibraryBooksProvider().search(query),
+            lambda: MockBooksProvider().search(query),
+            "books",
+        )
+        notes.append(activity("tool", f"Books '{query}' via {src}"))
+        return data, notes
     return {}, notes
 
 
@@ -231,6 +251,8 @@ DATA_PATHS = {
     "SHOPPING": "/shopping",
     "FINTECH": "/fintech",
     "CUSTOMER_SUPPORT": "/support",
+    "MOVIES": "/movies",
+    "BOOKS": "/books",
 }
 
 
@@ -294,6 +316,7 @@ async def orchestrate(text: str, user_context: dict[str, Any] | None) -> AsyncIt
     yield pipeline("SSE")
     for msg in messages:
         yield msg
+        await asyncio.sleep(0)
     yield activity("rendered", "Components streamed to renderer")
     yield pipeline("A2UI_RUNTIME")
     yield pipeline("COMPONENT_CATALOG")

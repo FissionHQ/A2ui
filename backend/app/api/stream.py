@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any, AsyncIterator
 
@@ -33,6 +34,7 @@ async def stream_intent(text: str, user_context: dict[str, Any] | None) -> Async
                     yield ServerSentEvent(event="demo", data=json.dumps(err))
                     continue
             yield ServerSentEvent(event=_event_name(msg), data=json.dumps(msg))
+            await asyncio.sleep(0.05)
         yield ServerSentEvent(event="done", data="{}")
     except Exception as exc:  # noqa: BLE001
         payload = {

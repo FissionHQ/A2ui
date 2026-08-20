@@ -19,6 +19,8 @@ KEYWORD_RULES: list[tuple[str, str, str]] = [
     (r"market|nifty|sensex|stock|share|indian market|bse|nse", "MARKET_DATA", "MARKET_OVERVIEW"),
     (r"news|headline|article|what's happening", "NEWS", "NEWS_TOPIC"),
     (r"weather|forecast|rain|temperature|humidity|climate|umbrella|hot|monsoon", "WEATHER", "WEATHER_FORECAST"),
+    (r"movie|film|cinema|theatre|theater|jr\.?\s*ntr|junior ntr|ntr|top rated|now playing|bollywood|tollywood", "MOVIES", "MOVIES_BROWSE"),
+    (r"book|novel|author|read|fiction|bestseller|literature", "BOOKS", "BOOKS_BROWSE"),
 ]
 
 STOPWORDS = {
@@ -209,6 +211,20 @@ def _extract_entities(text: str, domain: str) -> dict[str, Any]:
         if re.search(r"payout", t, re.I):
             return {"focus": "execute_payout"}
         return {"focus": "invoices_attention"}
+    if domain == "MOVIES":
+        skip = {"show", "me", "movies", "movie", "films", "film", "find", "get",
+                "what", "are", "the", "a", "an", "in", "of", "for", "to",
+                "please", "list", "some", "all", "i", "want", "need", "can"}
+        words = [w for w in re.findall(r"[A-Za-z0-9][A-Za-z0-9']+", t) if w.lower() not in skip]
+        query = " ".join(words[:6]) if words else "Inception"
+        return {"query": query}
+    if domain == "BOOKS":
+        skip = {"show", "me", "books", "book", "novels", "novel", "find", "get",
+                "what", "are", "the", "a", "an", "of", "for", "to", "please",
+                "list", "some", "all", "top", "rated", "best", "latest"}
+        words = [w for w in re.findall(r"[A-Za-z0-9][A-Za-z0-9']+", t) if w.lower() not in skip]
+        query = " ".join(words[:6]) if words else "fiction bestsellers"
+        return {"query": query}
     if domain == "CUSTOMER_SUPPORT":
         action = "refund" if re.search(r"refund", t, re.I) else "status"
         return {"issue": "delayed_order", "desiredAction": action}
@@ -302,7 +318,7 @@ def _add_clarification(result: dict[str, Any]) -> dict[str, Any]:
 ROUTER_SYSTEM = """You route natural-language requests for one Indian business demo app.
 
 Pick exactly one domain:
-WEATHER, NEWS, TRAVEL, MARKET_DATA, SHOPPING, FINTECH, CUSTOMER_SUPPORT
+WEATHER, NEWS, TRAVEL, MARKET_DATA, SHOPPING, FINTECH, CUSTOMER_SUPPORT, MOVIES, BOOKS
 or UNKNOWN if it is unrelated (poetry, math homework, coding, etc.).
 
 Extract entities that actually appear in the prompt. Do not invent a city, product, or topic the user did not mention.
@@ -318,6 +334,8 @@ MARKET_DATA: market (usually INDIA), focus (overview|nifty|sensex|movers|news_im
 SHOPPING: query (product words), maxPrice (number or null), currency (INR)
 FINTECH: focus (invoices_attention|release_milestone|execute_payout)
 CUSTOMER_SUPPORT: issue, desiredAction (refund|status)
+MOVIES: query (exact search term to pass to OMDB, e.g. "Prabhas", "Pushpa", "Christopher Nolan", "top rated")
+BOOKS: focus (top_rated)
 
 Also set intent, a short snake label, and confidence 0-1.
 

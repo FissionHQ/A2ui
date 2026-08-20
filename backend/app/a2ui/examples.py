@@ -492,6 +492,65 @@ def support_surface(data: dict[str, Any], focus: str = "refund") -> list[dict[st
     return envelope("support_surface", components, "/support", data)
 
 
+def books_surface(data: dict[str, Any]) -> list[dict[str, Any]]:
+    count = len(data.get("books") or [])
+    components = [
+        {"id": "root", "component": "Page", "children": ["heading", "list"]},
+        {
+            "id": "heading",
+            "component": "Alert",
+            "variant": "info",
+            "title": {"path": "/books/label"},
+            "message": f"{count} titles",
+        },
+        {
+            "id": "list",
+            "component": "ItemList",
+            "children": {"componentId": "book_template", "path": "/books/books"},
+        },
+        {
+            "id": "book_template",
+            "component": "ItemCard",
+            "icon": "star",
+            "title": {"path": "/books/books/@index/title"},
+            "subtitle": {"path": "/books/books/@index/author"},
+            "badge": {"path": "/books/books/@index/genre"},
+            "year": {"path": "/books/books/@index/year"},
+            "rating": {"path": "/books/books/@index/rating"},
+        },
+    ]
+    return envelope("books_surface", components, "/books", data)
+
+
+def movies_surface(data: dict[str, Any], focus: str = "") -> list[dict[str, Any]]:
+    components = [
+        {"id": "root", "component": "Page", "children": ["heading", "list"]},
+        {
+            "id": "heading",
+            "component": "Alert",
+            "variant": "info",
+            "title": {"path": "/movies/label"},
+            "message": f"{len(data.get('movies', []))} titles",
+        },
+        {
+            "id": "list",
+            "component": "ItemList",
+            "children": {"componentId": "movie_template", "path": "/movies/movies"},
+        },
+        {
+            "id": "movie_template",
+            "component": "ItemCard",
+            "icon": {"path": "/movies/movies/@index/icon"},
+            "title": {"path": "/movies/movies/@index/title"},
+            "year": {"path": "/movies/movies/@index/year"},
+            "rating": {"path": "/movies/movies/@index/rating"},
+            "badge": {"path": "/movies/movies/@index/genre"},
+            "director": {"path": "/movies/movies/@index/director"},
+        },
+    ]
+    return envelope("movies_surface", components, "/movies", data)
+
+
 def disabled_surface(domain: str) -> list[dict[str, Any]]:
     return envelope(
         "error_surface",
@@ -561,6 +620,8 @@ def build_surface(
         "SHOPPING": lambda: shopping_surface(data),
         "FINTECH": lambda: fintech_surface(data, role),
         "CUSTOMER_SUPPORT": lambda: support_surface(data, focus or data.get("desiredAction") or "refund"),
+        "MOVIES": lambda: movies_surface(data, focus or "top_rated"),
+        "BOOKS": lambda: books_surface(data),
     }
     fn = builders.get(domain)
     if not fn:

@@ -37,4 +37,6 @@ export const AppCatalog: Record<string, { component: ComponentType<Record<string
   PayButton: { component: C.PayButton },
   OrderCard: { component: C.OrderCard },
   RefundButton: { component: C.RefundButton },
+  ItemCard: { component: C.ItemCard },
+  ItemList: { component: C.ItemList },
 };

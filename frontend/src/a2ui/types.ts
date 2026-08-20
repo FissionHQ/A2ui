@@ -86,6 +86,8 @@ export const COMPONENT_NAMES = [
   "PayButton",
   "OrderCard",
   "RefundButton",
+  "ItemCard",
+  "ItemList",
 ] as const;
 
 export const LOCAL_FUNCTIONS = new Set([

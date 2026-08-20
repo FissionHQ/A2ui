@@ -108,6 +108,8 @@ def prompt_for_domain(domain: str) -> str:
         "SHOPPING": "You are a shopping A2UI agent. Your final output MUST be A2UI UI JSON.",
         "FINTECH": "You are a fintech invoicing/milestone A2UI agent. Your final output MUST be A2UI UI JSON.",
         "CUSTOMER_SUPPORT": "You are a customer-support A2UI agent. Your final output MUST be A2UI UI JSON.",
+        "MOVIES": "You are a movies experience A2UI agent. Your final output MUST be A2UI UI JSON.",
+        "BOOKS": "You are a books experience A2UI agent. Your final output MUST be A2UI UI JSON.",
     }
     ui = {
         "WEATHER": "Pick from WeatherCard, MetricCard, ForecastChart/Chart, Alert. If the user only asked about rain, lead with rain MetricCard + Alert. If they asked humidity or temperature, emphasize that metric. Still include WeatherCard for place/date.",
@@ -117,6 +119,8 @@ def prompt_for_domain(domain: str) -> str:
         "SHOPPING": "Pick from ProductCard, ProductList, Rating, Price, CompareButton, CompareTray, Alert. Bind products to toolResult.products and compared to toolResult.compared. Heading must use toolResult.query. Never invent product titles.",
         "FINTECH": "Pick InvoiceTable + PayButton for invoices, MilestoneCard for milestones, MetricCard for totals. Respect user role.",
         "CUSTOMER_SUPPORT": "Pick OrderCard, StatusChip, Timeline, Alert, RefundButton. If they did not ask for a refund, you may omit RefundButton.",
+        "MOVIES": "Pick ItemCard, ItemList, Tabs, Alert. Bind movies list to toolResult.movies. Use icon=film. Show director in director field. Never invent titles.",
+        "BOOKS": "Pick ItemCard, ItemList, Alert. Bind books list to toolResult.books. Use icon=star. Show author in meta field. Never invent titles.",
     }
     workflow = (
         "1. Read userPrompt first. The UI must feel like an answer to that sentence.\n"

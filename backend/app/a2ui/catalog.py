@@ -40,6 +40,8 @@ COMPONENT_NAMES = [
     "PayButton",
     "OrderCard",
     "RefundButton",
+    "ItemCard",
+    "ItemList",
 ]
 
 LOCAL_FUNCTIONS = {
@@ -91,6 +93,8 @@ DOMAIN_COMPONENTS: dict[str, list[str]] = {
     ],
     "FINTECH": ["Page", "List", "MetricCard", "InvoiceTable", "Table", "StatusChip", "PayButton", "MilestoneCard"],
     "CUSTOMER_SUPPORT": ["Page", "OrderCard", "StatusChip", "Timeline", "Alert", "RefundButton"],
+    "MOVIES": ["Page", "ItemCard", "ItemList", "Alert", "Tabs"],
+    "BOOKS": ["Page", "ItemCard", "ItemList", "Alert"],
 }
 
 

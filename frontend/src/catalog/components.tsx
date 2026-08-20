@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from "react";
+import React, { useId, type ReactNode } from "react";
 import {
   CloudSun,
   Newspaper,
@@ -14,6 +14,17 @@ import {
   Footprints,
   Hotel,
   GitCompare,
+  Film,
+  Swords,
+  Laugh,
+  Skull,
+  Heart,
+  Rocket,
+  Sparkles,
+  BookOpen,
+  Search,
+  Theater,
+  Music,
 } from "lucide-react";
 import { Badge as UiBadge } from "@/components/ui/badge";
 import { Button as UiButton } from "@/components/ui/button";
@@ -512,3 +523,49 @@ export function OrderCard(p: P) {
 
 void Newspaper;
 void Landmark;
+
+// --- Generic item card/list — reuse for any domain that has icon+title+meta+rating ---
+
+export function ItemList({ children, columns }: P & { columns?: number }) {
+  const cols = Number(columns) || 2;
+  const cls = cols === 1 ? "grid-cols-1" : cols === 3 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2";
+  return <div className={`grid gap-3 ${cls}`}>{children}</div>;
+}
+
+export function ItemCard(p: P) {
+  const rating = num(p.rating) ?? null;
+  const ICONS: Record<string, React.ElementType> = {
+    film: Film, plane: Plane, star: Star,
+    swords: Swords, laugh: Laugh, skull: Skull, heart: Heart,
+    rocket: Rocket, sparkles: Sparkles, "book-open": BookOpen,
+    search: Search, theater: Theater, music: Music,
+  };
+  const iconKey = (p.icon != null && typeof p.icon !== "object" ? String(p.icon) : "film").toLowerCase();
+  const Icon = ICONS[iconKey] ?? Film;
+  return (
+    <div className="flex gap-4 rounded-2xl border border-border/60 bg-card/90 p-4 shadow-[0_14px_45px_-32px_rgba(15,23,42,.5)] transition duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg">
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+        <Icon className="h-7 w-7 text-primary" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold leading-snug text-foreground">{text(p.title)}</div>
+        <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          {p.subtitle  && <span>{text(p.subtitle)}</span>}
+          {p.year      && <span>{text(p.year)}</span>}
+          {p.badge     && <UiBadge variant="secondary">{text(p.badge)}</UiBadge>}
+          {p.genre     && <UiBadge variant="secondary">{text(p.genre)}</UiBadge>}
+        </div>
+        {p.meta && <div className="mt-1 text-xs text-muted-foreground">{text(p.meta)}</div>}
+        {p.director && <div className="mt-1 text-xs text-muted-foreground">Dir. {text(p.director)}</div>}
+        {rating !== null && (
+          <div className="mt-1 flex items-center gap-1 text-warning">
+            <Star className="h-3.5 w-3.5 fill-current" />
+            <span className="text-xs font-semibold text-foreground">{rating.toFixed(1)}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// MovieCard and MovieList removed — use ItemCard and ItemList directly
