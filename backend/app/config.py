@@ -23,10 +23,11 @@ class Settings(BaseSettings):
     weather_api_key: str = ""
     news_api_key: str = ""
     market_api_key: str = ""
+    omdb_api_key: str = ""
 
     data_mode: str = "mix"
     enabled_domains: str = (
-        "WEATHER,NEWS,TRAVEL,MARKET_DATA,SHOPPING,FINTECH,CUSTOMER_SUPPORT"
+        "WEATHER,NEWS,TRAVEL,MARKET_DATA,SHOPPING,FINTECH,CUSTOMER_SUPPORT,MOVIES"
     )
     cors_origins: str = "http://localhost:5173,http://localhost:8080"
 

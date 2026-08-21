@@ -35,6 +35,10 @@ const EXAMPLES = [
   "Show me invoices that need attention.",
   "I want to release my freelancer milestone.",
   "My order is delayed. Can I get a refund?",
+  "Show top rated movies",
+  "What movies are in theatres now?",
+  "Show Jr. NTR movies",
+  "Show top rated books",
 ];
 
 const USERS = [
